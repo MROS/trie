@@ -463,28 +463,40 @@ fn trie_iteration(c: &mut Criterion) {
 fn trie_proof_verification(c: &mut Criterion) {
 	use memory_db::HashKey;
 
-	let mut data = input_unsorted(29, 204800, 32);
-	let mut keys = data[(data.len() / 3)..]
+	let mut data = input_unsorted(28, 32 * 8000 * 10000, 32);
+	// let mut keys = data[(data.len() / 3)..]
+	// 	.iter()
+	// 	.map(|(key, _)| key.clone())
+	// 	.collect::<Vec<_>>();
+	// data.truncate(data.len() * 2 / 3);
+	let mut keys = data
 		.iter()
 		.map(|(key, _)| key.clone())
 		.collect::<Vec<_>>();
-	data.truncate(data.len() * 2 / 3);
 
 	let data = data_sorted_unique(data);
+    keys.truncate(500);
 	keys.sort();
 	keys.dedup();
+    println!("data len: {}, key len: {}", data.len(), keys.len());
 
 	let mut mdb = memory_db::MemoryDB::<_, HashKey<_>, _>::default();
 	let root = reference_trie::calc_root_build(data, &mut mdb);
 
 	let trie = reference_trie::RefTrieDB::new(&mdb, &root).unwrap();
 	let proof = generate_proof(&trie, keys.iter()).unwrap();
+    let mut total_size = 0;
+    for p in &proof {
+        total_size += p.len();
+    }
+    println!("total proof len: {}", total_size);
 	let items = keys.into_iter()
 		.map(|key| {
 			let value = trie.get(&key).unwrap();
 			(key, value)
 		})
 		.collect::<Vec<_>>();
+    println!("proof len: {}, proof[0] len: {}", proof.len(), proof[0].len());
 
 	c.bench_function("trie_proof_verification", move |b: &mut Bencher|
 		b.iter(|| {
